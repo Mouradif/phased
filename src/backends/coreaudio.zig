@@ -105,6 +105,9 @@ fn renderCallback(
         data[i * 2 + 0] = sample;
         data[i * 2 + 1] = sample;
         phased.current_frame += 1;
+        if (phased.current_frame >= phased.getMaxFrame()) {
+            phased.current_frame = 0;
+        }
     }
 
     return 0;
