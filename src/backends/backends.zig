@@ -40,6 +40,7 @@ pub const BackendHandle = struct {
     start: *const fn (*Phased) void,
     stop: *const fn (*Phased) void,
     ctx: *anyopaque,
+    deinit: *const fn (*anyopaque) void,
 };
 
 pub fn connect(phased: *Phased) !BackendHandle {

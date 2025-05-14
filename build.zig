@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -16,9 +17,16 @@ pub fn build(b: *std.Build) void {
         .root_module = lib_mod,
     });
 
-    lib.linkFramework("CoreAudio");
-    lib.linkFramework("AudioUnit");
-    lib.linkFramework("AudioToolbox");
+    switch (builtin.target.os.tag) {
+        .macos => {
+            lib.linkFramework("CoreAudio");
+            lib.linkFramework("AudioUnit");
+            lib.linkFramework("AudioToolbox");
+        },
+        else => {
+            @compileError("Phased only supports macOS (CoreAudio) at the moment.");
+        },
+    }
 
     b.installArtifact(lib);
 

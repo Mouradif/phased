@@ -20,14 +20,15 @@ const CoreAudioCtx = struct {
         return ctx;
     }
 
-    pub fn deinit(self: *CoreAudioCtx) void {
+    pub fn deinit(self_ptr: *anyopaque) void {
+        const self: *CoreAudioCtx = @alignCast(@ptrCast(self_ptr));
         self.allocator.destroy(self);
     }
 };
 
 pub fn connect(phased: *Phased) !BackendHandle {
     const ctx = try CoreAudioCtx.init(phased.allocator, phased);
-    errdefer ctx.deinit();
+    errdefer CoreAudioCtx.deinit(ctx);
 
     var desc = c.AudioComponentDescription{
         .componentType = c.kAudioUnitType_Output,
@@ -80,6 +81,7 @@ pub fn connect(phased: *Phased) !BackendHandle {
         .start = start,
         .stop = stop,
         .ctx = ctx,
+        .deinit = CoreAudioCtx.deinit,
     };
 }
 
@@ -98,21 +100,22 @@ fn renderCallback(
 
     var i: u32 = 0;
     while (i < inNumberFrames) : (i += 1) {
-        const sample = phased.computeSample(phased.frequency);
+        const sample = phased.computeSample();
         phased.incrementPhases();
         data[i * 2 + 0] = sample;
         data[i * 2 + 1] = sample;
+        phased.current_frame += 1;
     }
 
     return 0;
 }
 
 fn start(phased: *Phased) void {
-    const ctx: *CoreAudioCtx = @alignCast(@ptrCast(phased.backend_handle.ctx));
+    const ctx: *CoreAudioCtx = @alignCast(@ptrCast(phased.backend_handle.?.ctx));
     _ = c.AudioOutputUnitStart(ctx.audio_unit);
 }
 
 fn stop(phased: *Phased) void {
-    const ctx: *CoreAudioCtx = @alignCast(@ptrCast(phased.backend_handle.ctx));
+    const ctx: *CoreAudioCtx = @alignCast(@ptrCast(phased.backend_handle.?.ctx));
     _ = c.AudioOutputUnitStop(ctx.audio_unit);
 }
