@@ -101,11 +101,10 @@ fn renderCallback(
     var i: u32 = 0;
     while (i < inNumberFrames) : (i += 1) {
         const sample = phased.computeSample();
-        phased.incrementPhases();
         data[i * 2 + 0] = sample;
         data[i * 2 + 1] = sample;
         phased.current_frame += 1;
-        if (phased.current_frame >= phased.getMaxFrame()) {
+        if (phased.playback_mode == .loop and phased.current_frame >= phased.getMaxFrame()) {
             phased.current_frame = 0;
         }
     }
