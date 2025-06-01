@@ -17,16 +17,10 @@ pub fn init(allocator: std.mem.Allocator) Track {
 }
 
 pub fn deinit(self: *Track) void {
-    if (self.generator) |generator| {
-        generator.deinit();
-    }
     self.sends.deinit();
 }
 
 pub fn setGenerator(self: *Track, generator: Generator) void {
-    if (self.generator) |g| {
-        g.deinit();
-    }
     self.generator = generator;
 }
 

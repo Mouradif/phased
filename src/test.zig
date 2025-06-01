@@ -1,4 +1,9 @@
 const PhasedSynth = @import("generators/phased_synth.zig");
+const Tremolo = @import("effects/tremolo.zig");
+const Distortion = @import("effects/distortion.zig");
+const Gain = @import("effects/gain.zig");
+const Bitcrusher = @import("effects/bitcrusher.zig");
+
 const Phased = @import("root.zig");
 const std = @import("std");
 
@@ -16,34 +21,34 @@ pub fn main() !void {
 
     var phased = Phased.init(allocator);
     defer phased.deinit();
-    var synth = try PhasedSynth.create(allocator);
+    var bc = try Bitcrusher.create(allocator, 2, 0.2);
+    defer bc.deinit();
+    phased.assignEffect(0, bc.effect());
+    var synth1 = try PhasedSynth.create(allocator, .{});
+    defer synth1.deinit();
+    var synth2 = try PhasedSynth.create(allocator, .{});
+    defer synth2.deinit();
     for (0..5) |i| {
-        try synth.addOscillator(Phased.Osc.init(.{
+        try synth1.addOscillator(Phased.Osc.init(.{
             .waveform = .sine,
             .detune = detune_ratios[i],
-            .octave = @floatFromInt(i),
+            .octave = @floatFromInt(i + 1),
+            .amplitude = amps[i],
+        }));
+        try synth2.addOscillator(Phased.Osc.init(.{
+            .waveform = .sine,
+            .detune = detune_ratios[i],
+            .octave = @floatFromInt(i + 1),
             .amplitude = amps[i],
         }));
     }
-    synth.adsr(0.021, 0.05, 0.7, 0.5);
-    var wave = try PhasedSynth.create(allocator);
-    for (0..5) |i| {
-        try wave.addOscillator(Phased.Osc.init(.{
-            .waveform = .sine,
-            .detune = detune_ratios[i],
-            .octave = @floatFromInt(i),
-            .amplitude = amps[i],
-        }));
-    }
-    wave.adsr(0.5, 0, 0, 0);
     try phased.addTrack();
     try phased.addTrack();
-    try phased.assignTrack(0, synth.generator());
-    try phased.assignTrack(1, wave.generator());
+    try phased.assignTrack(0, synth1.generator());
+    try phased.assignTrack(1, synth2.generator());
+    try phased.tracks.items[1].sends.append(.{ .bus = 0, .level = 1.0 });
     try phased.connect();
-    try phased.schedule(1, base_freq, 0, 0.3);
-    try phased.schedule(0, base_freq * 1.5, 0.3, 0.3);
-    try phased.schedule(0, base_freq * 1.5, 0.6, 0.3);
-    phased.loop(true);
+    try phased.schedule(0, base_freq, 0, 1);
+    try phased.schedule(1, base_freq, 1, 1);
     try phased.play();
 }

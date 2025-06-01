@@ -5,6 +5,13 @@ const Event = @import("../event.zig");
 
 const PhasedSynth = @This();
 
+const Initializer = struct {
+    attack: f32 = 0.021,
+    decay: f32 = 0.05,
+    sustain: f32 = 0.7,
+    release: f32 = 0.1,
+};
+
 allocator: std.mem.Allocator,
 oscillators: std.ArrayList(Osc),
 attack: f32 = 0.021,
@@ -12,11 +19,15 @@ decay: f32 = 0.05,
 sustain: f32 = 0.7,
 release: f32 = 0.1,
 
-pub fn create(allocator: std.mem.Allocator) !*PhasedSynth {
+pub fn create(allocator: std.mem.Allocator, params: Initializer) !*PhasedSynth {
     const self = try allocator.create(PhasedSynth);
     self.* = .{
         .allocator = allocator,
         .oscillators = std.ArrayList(Osc).init(allocator),
+        .attack = params.attack,
+        .decay = params.decay,
+        .sustain = params.sustain,
+        .release = params.release,
     };
     return self;
 }
@@ -25,11 +36,20 @@ pub fn addOscillator(self: *PhasedSynth, oscillator: Osc) !void {
     try self.oscillators.append(oscillator);
 }
 
-pub fn adsr(self: *PhasedSynth, a: f32, d: f32, s: f32, r: f32) void {
-    self.attack = a;
-    self.decay = d;
-    self.sustain = s;
-    self.release = r;
+pub fn a(self: *PhasedSynth, attack: f32) void {
+    self.attack = attack;
+}
+
+pub fn d(self: *PhasedSynth, decay: f32) void {
+    self.decay = decay;
+}
+
+pub fn s(self: *PhasedSynth, sustain: f32) void {
+    self.sustain = sustain;
+}
+
+pub fn r(self: *PhasedSynth, release: f32) void {
+    self.release = release;
 }
 
 pub fn releaseTime(self: PhasedSynth) f32 {

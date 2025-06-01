@@ -5,9 +5,11 @@ const PlaybackMode = @import("playback_mode.zig").PlaybackMode;
 pub const Osc = @import("osc.zig");
 pub const Track = @import("track.zig");
 pub const Generator = @import("generator.zig");
+pub const Effect = @import("effect.zig");
 pub const Send = @import("send.zig");
 
 const MAX_SIMULTANEOUS_EVENTS = 32;
+const MAX_FX_BUSES = 8;
 
 const Phased = @This();
 
@@ -21,6 +23,8 @@ sample_rate: f32 = 44100,
 tracks: Track.List,
 current_events: [MAX_SIMULTANEOUS_EVENTS]?*Event = undefined,
 current_events_index: usize = 0,
+fx_buses: [MAX_FX_BUSES]?Effect = [_]?Effect{null} ** MAX_FX_BUSES,
+fx_inputs: [MAX_FX_BUSES]f32 = [_]f32{0} ** MAX_FX_BUSES,
 
 pub fn init(allocator: std.mem.Allocator) Phased {
     return .{
@@ -110,6 +114,11 @@ pub fn assignTrack(self: *Phased, track: usize, generator: Generator) !void {
     self.tracks.items[track].setGenerator(generator);
 }
 
+pub fn assignEffect(self: *Phased, bus: usize, fx: Effect) void {
+    if (bus >= MAX_FX_BUSES) return;
+    self.fx_buses[bus] = fx;
+}
+
 pub fn setTrackVolume(self: *Phased, track: usize, volume: f32) void {
     if (track >= self.tracks.items.len) return;
     self.tracks.items[track].volume = volume;
@@ -129,6 +138,7 @@ pub fn connect(self: *Phased) !void {
 }
 
 pub fn computeSample(self: *Phased) f32 {
+    @memset(&self.fx_inputs, 0);
     var sample: f32 = 0;
 
     for (self.scheduler.items) |*event| {
@@ -143,18 +153,28 @@ pub fn computeSample(self: *Phased) f32 {
         }
         const event = self.current_events[i].?;
         const track = self.tracks.items[event.track_index];
-        if (track.generator) |gen| {
-            const event_sample = gen.render(event.*, self.sample_rate) * track.volume;
-            if (!self.shouldRunEvent(event.*) and event_sample == 0) {
-                self.stopProcessingEvent(i);
-            } else if (event_sample == 0) {
-            }
-            event.advance();
-            sample += event_sample;
+        if (track.generator == null) {
+            continue;
+        }
+        const gen = track.generator.?;
+        const dry = gen.render(event.*, self.sample_rate) * track.volume;
+        if (!self.shouldRunEvent(event.*) and dry == 0) {
+            self.stopProcessingEvent(i);
+        }
+        event.advance();
+        sample += dry;
+        for (track.sends.items) |send| {
+            self.fx_inputs[send.bus] += dry * send.level;
         }
     }
     self.squashProcessedEvents();
 
+    for (0..MAX_FX_BUSES) |bus_index| {
+        if (self.fx_buses[bus_index] == null) continue;
+        const fx = self.fx_buses[bus_index].?;
+        const wet = fx.process(self.fx_inputs[bus_index]);
+        sample += wet;
+    }
     return sample;
 }
 
